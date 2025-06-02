@@ -5,12 +5,13 @@ createApp({
         const tg = window.Telegram.WebApp;
         const userCountry = ref(null);
         const userClicks = ref(0);
-        const countryScores = ref({ USA: 0, Russia: 0, Germany: 0 });
+        const countryScores = ref({ Russia: 0, Ukraine: 0 });
 
         // Загрузка данных из Firebase
         onMounted(() => {
             database.ref('countryScores').on('value', (snapshot) => {
-                countryScores.value = snapshot.val() || { USA: 0, Russia: 0, Germany: 0 };
+                const data = snapshot.val() || { Russia: 0, Ukraine: 0 };
+                countryScores.value = data;
             });
         });
 
@@ -18,16 +19,17 @@ createApp({
         const selectCountry = (country) => {
             userCountry.value = country;
             tg.sendData(JSON.stringify({ action: "set_country", country }));
+            tg.expand(); // Развернуть на весь экран
         };
 
-        // Клик + отправка в Firebase
-        const incrementClick = () => {
+        // Клик + обновление Firebase
+        const addClick = () => {
             userClicks.value++;
             const updates = {};
-            updates[`countryScores/${userCountry.value}`] = countryScores.value[userCountry.value] + 1;
-            database.ref().update(updates);
+            updates[`countryScores/${userCountry.value}`] = (countryScores.value[userCountry.value] || 0) + 1;
+            firebase.database().ref().update(updates);
         };
 
-        return { userCountry, userClicks, countryScores, selectCountry, incrementClick };
+        return { userCountry, userClicks, countryScores, selectCountry, addClick };
     }
 }).mount('#app');
