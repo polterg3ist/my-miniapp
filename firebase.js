@@ -1,4 +1,7 @@
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getDatabase } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
 const firebaseConfig = {
   apiKey: "AIzaSyCM_mQULdndLnXTXmjvWMM1u1jY3619fXc",
   authDomain: "my-miniapp-e609e.firebaseapp.com",
@@ -9,6 +12,11 @@ const firebaseConfig = {
   measurementId: "G-R1K9ZJD59Y"
 };
 
-firebase.initializeApp(firebaseConfig);
-//const app = firebase.initializeApp(firebaseConfig);
-const database = firebase.database();  // Для Realtime Database
+// firebase.initializeApp(firebaseConfig);
+// const database = firebase.database();  // Для Realtime Database
+
+// Инициализация Firebase
+const app = initializeApp(firebaseConfig);
+const database = getDatabase(app);
+
+export { database };  // Экспортируем для использования в других файлах
