@@ -5,60 +5,56 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Кликер: Россия vs Украина</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- Используем CDN без модулей -->
+
+    <!-- Firebase 8.10.0 (стабильная версия) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-    <link rel="stylesheet" href="style.css">
+
     <style>
-        body { font-family: Arial, sans-serif; padding: 10px; text-align: center; }
-        button { padding: 12px 20px; margin: 10px; font-size: 16px; background: #0088cc; color: white; border: none; border-radius: 8px; }
-        .scoreboard { margin-top: 20px; padding: 10px; background: #f5f5f5; border-radius: 8px; }
+        body { font-family: Arial, padding: 10px; text-align: center; }
+        button { padding: 12px 20px; margin: 5px; background: #0088cc; color: white; border: none; border-radius: 5px; }
+        .scoreboard { margin-top: 15px; padding: 10px; background: #f0f0f0; border-radius: 5px; }
     </style>
 </head>
 <body>
     <div id="app">
-        <div v-if="!userCountry" class="country-select">
+        <div v-if="!userCountry">
             <h1>Выберите страну</h1>
             <button @click="selectCountry('Russia')">🇷🇺 Россия</button>
             <button @click="selectCountry('Ukraine')">🇺🇦 Украина</button>
         </div>
-        
-        <div v-else class="clicker">
+        <div v-else>
             <h1>Вы играете за: {{ userCountry }}</h1>
-            <button @click="addClick">КЛИКНУТЬ ({{ userClicks }})</button>
-            
-            <h2>Общий счёт:</h2>
+            <button @click="addClick">КЛИК ({{ userClicks }})</button>
             <div class="scoreboard">
-                <div>🇷🇺 Россия: {{ countryScores.Russia || 0 }}</div>
-                <div>🇺🇦 Украина: {{ countryScores.Ukraine || 0 }}</div>
+                <div>🇷🇺 Россия: {{ scores.Russia || 0 }}</div>
+                <div>🇺🇦 Украина: {{ scores.Ukraine || 0 }}</div>
             </div>
         </div>
     </div>
 
-    <!-- Vue 3 (production версия) -->
+    <!-- Vue 3 Production -->
     <script src="https://cdn.jsdelivr.net/npm/vue@3.2.47/dist/vue.global.prod.js"></script>
-    
-    <!-- Инициализация Firebase -->
+
+    <!-- Firebase и основной код -->
     <script>
-        // Ваши реальные значения из Firebase Console
+        // Конфиг из Firebase Console → Project settings
         const firebaseConfig = {
           apiKey: "AIzaSyCM_mQULdndLnXTXmjvWMM1u1jY3619fXc",
           authDomain: "my-miniapp-e609e.firebaseapp.com",
-          databaseURL: "https://my-minlapp-ed99e-default-rctb.europe-west1.firebasedatabase.app",
           projectId: "my-miniapp-e609e",
+          databaseURL: "https://my-minlapp-e609e-default-rtdb.europe-west1.firebasedatabase.app",
           storageBucket: "my-miniapp-e609e.firebasestorage.app",
           messagingSenderId: "791995427739",
           appId: "1:791995427739:web:cbe22b29ddfea2b4a70f3e",
           measurementId: "G-R1K9ZJD59Y"
         };
-        
-        // Инициализация Firebase
-        firebase.initializeApp(firebaseConfig);
-        console.log("Firebase initialized!");
-    </script>
-    
-    <!-- Основной код приложения -->
-    <script>
+
+        // Инициализация
+        const app = firebase.initializeApp(firebaseConfig);
+        console.log("Firebase connected to:", firebaseConfig.databaseURL);
+
+        // Vue приложение
         const { createApp, ref, onMounted } = Vue;
 
         createApp({
@@ -66,15 +62,14 @@
                 const tg = window.Telegram.WebApp;
                 const userCountry = ref(null);
                 const userClicks = ref(0);
-                const countryScores = ref({ Russia: 0, Ukraine: 0 });
+                const scores = ref({ Russia: 0, Ukraine: 0 });
 
-                // Инициализация базы данных
+                // Подключение к Firebase
                 onMounted(() => {
-                    console.log("Подключаемся к Firebase...");
-                    firebase.database().ref('countryScores').on('value', (snapshot) => {
+                    firebase.database().ref('scores').on('value', (snapshot) => {
                         const data = snapshot.val() || { Russia: 0, Ukraine: 0 };
-                        countryScores.value = data;
-                        console.log("Данные получены:", data);
+                        scores.value = data;
+                        console.log("Данные обновлены:", data);
                     });
                 });
 
@@ -82,23 +77,19 @@
                 const selectCountry = (country) => {
                     userCountry.value = country;
                     tg.expand();
-                    console.log("Выбрана страна:", country);
                 };
 
-                // Обработка клика
+                // Клик
                 const addClick = () => {
                     if (!userCountry.value) return;
 
                     userClicks.value++;
-                    const updates = {};
-                    updates[`countryScores/${userCountry.value}`] = (countryScores.value[userCountry.value] || 0) + 1;
-                    
-                    firebase.database().ref().update(updates)
-                        .then(() => console.log("Счёт обновлён!"))
-                        .catch(error => console.error("Ошибка:", error));
+                    firebase.database().ref('scores/' + userCountry.value)
+                        .transaction((current) => (current || 0) + 1)
+                        .catch(e => console.error("Ошибка:", e));
                 };
 
-                return { userCountry, userClicks, countryScores, selectCountry, addClick };
+                return { userCountry, userClicks, scores, selectCountry, addClick };
             }
         }).mount('#app');
     </script>
