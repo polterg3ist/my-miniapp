@@ -5,11 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Кликер: Россия vs Украина</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
-    <!-- Firebase 8.10.0 (стабильная версия) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-
     <style>
         body { font-family: Arial, padding: 10px; text-align: center; }
         button { padding: 12px 20px; margin: 5px; background: #0088cc; color: white; border: none; border-radius: 5px; }
@@ -27,32 +24,29 @@
             <h1>Вы играете за: {{ userCountry }}</h1>
             <button @click="addClick">КЛИК ({{ userClicks }})</button>
             <div class="scoreboard">
-                <div>🇷🇺 Россия: {{ scores.Russia || 0 }}</div>
-                <div>🇺🇦 Украина: {{ scores.Ukraine || 0 }}</div>
+                <div>🇷🇺 Россия: {{ countryScores.Russia || 0 }}</div>
+                <div>🇺🇦 Украина: {{ countryScores.Ukraine || 0 }}</div>
             </div>
         </div>
     </div>
 
-    <!-- Vue 3 Production -->
     <script src="https://cdn.jsdelivr.net/npm/vue@3.2.47/dist/vue.global.prod.js"></script>
 
-    <!-- Firebase и основной код -->
     <script>
-        // Конфиг из Firebase Console → Project settings
+        // Конфигурация (замените значениями из Firebase Console)
         const firebaseConfig = {
-          apiKey: "AIzaSyCM_mQULdndLnXTXmjvWMM1u1jY3619fXc",
-          authDomain: "my-miniapp-e609e.firebaseapp.com",
-          projectId: "my-miniapp-e609e",
-          databaseURL: "https://my-minlapp-e609e-default-rtdb.europe-west1.firebasedatabase.app",
-          storageBucket: "my-miniapp-e609e.firebasestorage.app",
-          messagingSenderId: "791995427739",
-          appId: "1:791995427739:web:cbe22b29ddfea2b4a70f3e",
-          measurementId: "G-R1K9ZJD59Y"
+            apiKey: "AIzaSy...",
+            authDomain: "my-miniapp-e609e.firebaseapp.com",
+            databaseURL: "https://my-miniapp-e609e-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "my-miniapp-e609e",
+            storageBucket: "my-miniapp-e609e.appspot.com",
+            messagingSenderId: "123...",
+            appId: "1:123...:web:abc..."
         };
 
-        // Инициализация
-        const app = firebase.initializeApp(firebaseConfig);
-        console.log("Firebase connected to:", firebaseConfig.databaseURL);
+        // Инициализация Firebase
+        firebase.initializeApp(firebaseConfig);
+        console.log("Firebase подключён к:", firebaseConfig.databaseURL);
 
         // Vue приложение
         const { createApp, ref, onMounted } = Vue;
@@ -62,14 +56,22 @@
                 const tg = window.Telegram.WebApp;
                 const userCountry = ref(null);
                 const userClicks = ref(0);
-                const scores = ref({ Russia: 0, Ukraine: 0 });
+                const countryScores = ref({ Russia: 0, Ukraine: 0 });
 
-                // Подключение к Firebase
+                // Инициализация базы данных
                 onMounted(() => {
-                    firebase.database().ref('scores').on('value', (snapshot) => {
-                        const data = snapshot.val() || { Russia: 0, Ukraine: 0 };
-                        scores.value = data;
-                        console.log("Данные обновлены:", data);
+                    firebase.database().ref('countryScores').on('value', (snapshot) => {
+                        const data = snapshot.val();
+                        if (!data) {
+                            // Создаём структуру при первом запуске
+                            firebase.database().ref('countryScores').set({
+                                Russia: 0,
+                                Ukraine: 0
+                            });
+                        } else {
+                            countryScores.value = data;
+                        }
+                        console.log("Текущие scores:", data || { Russia: 0, Ukraine: 0 });
                     });
                 });
 
@@ -79,17 +81,18 @@
                     tg.expand();
                 };
 
-                // Клик
+                // Обработка клика
                 const addClick = () => {
                     if (!userCountry.value) return;
 
                     userClicks.value++;
-                    firebase.database().ref('scores/' + userCountry.value)
+                    firebase.database().ref('countryScores/' + userCountry.value)
                         .transaction((current) => (current || 0) + 1)
+                        .then(() => console.log("Счёт обновлён"))
                         .catch(e => console.error("Ошибка:", e));
                 };
 
-                return { userCountry, userClicks, scores, selectCountry, addClick };
+                return { userCountry, userClicks, countryScores, selectCountry, addClick };
             }
         }).mount('#app');
     </script>
