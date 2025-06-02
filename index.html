@@ -8,16 +8,43 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; padding: 10px; text-align: center; }
-        button { padding: 12px 20px; margin: 5px; background: #0088cc; color: white; border: none; border-radius: 5px; }
+        body {
+            font-family: Arial, sans-serif;
+            padding: 10px;
+            text-align: center;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        button {
+            padding: 12px 20px;
+            margin: 5px;
+            background: #0088cc;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+        }
         .stats {
             margin: 15px auto;
-            padding: 10px;
-            background: #f0f0f0;
-            border-radius: 5px;
-            max-width: 300px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
-        .online { color: #4CAF50; font-weight: bold; }
+        .online {
+            color: #4CAF50;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .player-list {
+            margin-top: 10px;
+            text-align: left;
+            padding: 0 10px;
+        }
+        .player-item {
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
     </style>
 </head>
 <body>
@@ -39,6 +66,13 @@
                 <h2>Ваши клики: {{ userClicks }}</h2>
 
                 <div class="online">Игроков онлайн: {{ onlineCount }}</div>
+
+                <div class="player-list" v-if="onlineCount > 0">
+                    <h3>Сейчас играют:</h3>
+                    <div class="player-item" v-for="(user, id) in onlinePlayers" :key="id">
+                        {{ user.country === 'Russia' ? '🇷🇺' : '🇺🇦' }} Игрок #{{ id.toString().slice(-4) }}
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -46,16 +80,15 @@
     <script src="https://cdn.jsdelivr.net/npm/vue@3.2.47/dist/vue.global.prod.js"></script>
 
     <script>
-        // Конфигурация Firebase (замените своими значениями)
+        // Конфигурация Firebase (ЗАМЕНИТЕ НА СВОИ ДАННЫЕ!)
         const firebaseConfig = {
-          apiKey: "AIzaSyCM_mQULdndLnXTXmjvWMM1u1jY3619fXc",
-          authDomain: "my-miniapp-e609e.firebaseapp.com",
-          projectId: "my-miniapp-e609e",
-          databaseURL: "https://my-miniapp-e609e-default-rtdb.europe-west1.firebasedatabase.app/",
-          storageBucket: "my-miniapp-e609e.firebasestorage.app",
-          messagingSenderId: "791995427739",
-          appId: "1:791995427739:web:cbe22b29ddfea2b4a70f3e",
-          measurementId: "G-R1K9ZJD59Y"
+            apiKey: "AIzaSy...",
+            authDomain: "your-project.firebaseapp.com",
+            databaseURL: "https://your-project.firebaseio.com",
+            projectId: "your-project",
+            storageBucket: "your-project.appspot.com",
+            messagingSenderId: "123...",
+            appId: "1:123...:web:abc..."
         };
 
         // Инициализация Firebase
@@ -67,49 +100,84 @@
         createApp({
             setup() {
                 const tg = window.Telegram.WebApp;
-                const userId = tg.initDataUnsafe.user?.id || Date.now(); // ID пользователя
+                const userId = tg.initDataUnsafe.user?.id || 'user_' + Math.random().toString(36).substr(2, 9);
                 const userCountry = ref(null);
                 const userClicks = ref(0);
                 const countryScores = ref({ Russia: 0, Ukraine: 0 });
                 const onlineCount = ref(0);
+                const onlinePlayers = ref({});
+
+                // Ссылки на Firebase
                 const userRef = firebase.database().ref('users/' + userId);
                 const onlineRef = firebase.database().ref('online/' + userId);
                 const connectionsRef = firebase.database().ref('.info/connected');
+                const onlineUsersRef = firebase.database().ref('onlineUsers');
 
                 // Инициализация данных
                 onMounted(() => {
                     // Загрузка общих счетов
                     firebase.database().ref('countryScores').on('value', (snapshot) => {
-                        const data = snapshot.val() || { Russia: 0, Ukraine: 0 };
-                        countryScores.value = data;
+                        countryScores.value = snapshot.val() || { Russia: 0, Ukraine: 0 };
                     });
 
-                    // Загрузка персональных кликов
+                    // Загрузка персональных данных
                     userRef.on('value', (snapshot) => {
                         const data = snapshot.val();
                         if (data) {
                             userClicks.value = data.clicks || 0;
-                            userCountry.value = data.country;
+                            userCountry.value = data.country || null;
+                        }
+                    });
+
+                    // Отметка онлайн-статуса
+                    connectionsRef.on('value', (snapshot) => {
+                        if (snapshot.val()) {
+                            // Обновляем статус каждые 30 секунд
+                            const updateStatus = () => {
+                                userRef.update({
+                                    lastActive: firebase.database.ServerValue.TIMESTAMP,
+                                    country: userCountry.value
+                                });
+                                onlineRef.set(true);
+                            };
+
+                            updateStatus();
+                            const interval = setInterval(updateStatus, 30000);
+
+                            // Очистка при отключении
+                            onlineRef.onDisconnect().remove();
+                            userRef.onDisconnect().update({
+                                lastActive: firebase.database.ServerValue.TIMESTAMP
+                            });
+
+                            // Очистка интервала при размонтировании
+                            onUnmounted(() => {
+                                clearInterval(interval);
+                            });
                         }
                     });
 
                     // Подсчет онлайн-игроков
-                    firebase.database().ref('online').on('value', (snapshot) => {
+                    onlineUsersRef.on('value', (snapshot) => {
                         onlineCount.value = snapshot.numChildren();
                     });
 
-                    // Отметка пользователя как онлайн
-                    connectionsRef.on('value', (snapshot) => {
-                        if (snapshot.val()) {
-                            onlineRef.set(true);
-                            onlineRef.onDisconnect().remove();
-                        }
-                    });
-                });
+                    // Список онлайн-игроков
+                    firebase.database().ref('users').orderByChild('lastActive').startAt(Date.now() - 60000).on('value', (snapshot) => {
+                        const users = snapshot.val() || {};
+                        const activePlayers = {};
 
-                // Очистка при размонтировании
-                onUnmounted(() => {
-                    onlineRef.remove();
+                        Object.keys(users).forEach(id => {
+                            if (users[id].lastActive > Date.now() - 60000) {
+                                activePlayers[id] = {
+                                    country: users[id].country || 'Unknown'
+                                };
+                            }
+                        });
+
+                        onlinePlayers.value = activePlayers;
+                        onlineCount.value = Object.keys(activePlayers).length;
+                    });
                 });
 
                 // Выбор страны
@@ -120,6 +188,7 @@
                         country: country,
                         lastActive: firebase.database.ServerValue.TIMESTAMP
                     });
+                    onlineRef.set(true);
                 };
 
                 // Обработка клика
@@ -141,6 +210,7 @@
                     userClicks,
                     countryScores,
                     onlineCount,
+                    onlinePlayers,
                     selectCountry,
                     addClick
                 };
