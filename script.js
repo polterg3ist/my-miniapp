@@ -28,8 +28,14 @@ createApp({
             const updates = {};
             updates[`countryScores/${userCountry.value}`] = (countryScores.value[userCountry.value] || 0) + 1;
             firebase.database().ref().update(updates);
+            // Проверка подключения
+            firebase.database().ref('.info/connected').on('value', (snapshot) => {
+              console.log("Firebase connected:", snapshot.val());
+});
         };
 
         return { userCountry, userClicks, countryScores, selectCountry, addClick };
     }
 }).mount('#app');
+
+

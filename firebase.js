@@ -10,5 +10,5 @@ const firebaseConfig = {
 };
 
 firebase.initializeApp(firebaseConfig);
-const database = firebase.database();
-
+const app = firebase.initializeApp(firebaseConfig);
+const database = firebase.database();  // Для Realtime Database
