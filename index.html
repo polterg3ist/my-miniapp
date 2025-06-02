@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Country Clicker</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <div v-if="!countrySelected" class="country-select">
+            <h1>Выберите страну</h1>
+            <button @click="selectCountry('USA')">🇺🇸 США</button>
+            <button @click="selectCountry('Russia')">🇷🇺 Россия</button>
+            <button @click="selectCountry('Germany')">🇩🇪 Германия</button>
+        </div>
+
+        <div v-else class="clicker">
+            <h1>Вы играете за: {{ userCountry }}</h1>
+            <button @click="incrementClick">КЛИК! ({{ userClicks }})</button>
+
+            <h2>Общий счет стран:</h2>
+            <div class="scoreboard">
+                <div v-for="(score, country) in countryScores" :key="country" class="score-item">
+                    {{ country }}: {{ score }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.2.47/dist/vue.global.min.js"></script>
+    <script src="firebase.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

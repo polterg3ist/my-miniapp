@@ -1,0 +1,31 @@
+body {
+    font-family: Arial, sans-serif;
+    padding: 10px;
+    text-align: center;
+    background-color: #f5f5f5;
+}
+
+.country-select button, .clicker button {
+    padding: 12px 20px;
+    margin: 10px;
+    font-size: 16px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    background: #0088cc;
+    color: white;
+}
+
+.scoreboard {
+    margin-top: 20px;
+    text-align: left;
+    padding: 10px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.score-item {
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+}
