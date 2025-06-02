@@ -8,9 +8,16 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <style>
-        body { font-family: Arial, padding: 10px; text-align: center; }
+        body { font-family: Arial, sans-serif; padding: 10px; text-align: center; }
         button { padding: 12px 20px; margin: 5px; background: #0088cc; color: white; border: none; border-radius: 5px; }
-        .scoreboard { margin-top: 15px; padding: 10px; background: #f0f0f0; border-radius: 5px; }
+        .stats {
+            margin: 15px auto;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 5px;
+            max-width: 300px;
+        }
+        .online { color: #4CAF50; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -23,9 +30,15 @@
         <div v-else>
             <h1>Вы играете за: {{ userCountry }}</h1>
             <button @click="addClick">КЛИК ({{ userClicks }})</button>
-            <div class="scoreboard">
+
+            <div class="stats">
+                <h2>Общий счёт</h2>
                 <div>🇷🇺 Россия: {{ countryScores.Russia || 0 }}</div>
                 <div>🇺🇦 Украина: {{ countryScores.Ukraine || 0 }}</div>
+
+                <h2>Ваши клики: {{ userClicks }}</h2>
+
+                <div class="online">Игроков онлайн: {{ onlineCount }}</div>
             </div>
         </div>
     </div>
@@ -33,52 +46,80 @@
     <script src="https://cdn.jsdelivr.net/npm/vue@3.2.47/dist/vue.global.prod.js"></script>
 
     <script>
-        // Конфигурация (замените значениями из Firebase Console)
+        // Конфигурация Firebase (замените своими значениями)
         const firebaseConfig = {
-            apiKey: "AIzaSy...",
-            authDomain: "my-miniapp-e609e.firebaseapp.com",
-            databaseURL: "https://my-miniapp-e609e-default-rtdb.europe-west1.firebasedatabase.app",
-            projectId: "my-miniapp-e609e",
-            storageBucket: "my-miniapp-e609e.appspot.com",
-            messagingSenderId: "123...",
-            appId: "1:123...:web:abc..."
+          apiKey: "AIzaSyCM_mQULdndLnXTXmjvWMM1u1jY3619fXc",
+          authDomain: "my-miniapp-e609e.firebaseapp.com",
+          projectId: "my-miniapp-e609e",
+          databaseURL: "https://my-minlapp-e609e-default-rtdb.europe-west1.firebasedatabase.app",
+          storageBucket: "my-miniapp-e609e.firebasestorage.app",
+          messagingSenderId: "791995427739",
+          appId: "1:791995427739:web:cbe22b29ddfea2b4a70f3e",
+          measurementId: "G-R1K9ZJD59Y"
         };
 
         // Инициализация Firebase
         firebase.initializeApp(firebaseConfig);
-        console.log("Firebase подключён к:", firebaseConfig.databaseURL);
+        console.log("Firebase подключён!");
 
-        // Vue приложение
-        const { createApp, ref, onMounted } = Vue;
+        const { createApp, ref, onMounted, onUnmounted } = Vue;
 
         createApp({
             setup() {
                 const tg = window.Telegram.WebApp;
+                const userId = tg.initDataUnsafe.user?.id || Date.now(); // ID пользователя
                 const userCountry = ref(null);
                 const userClicks = ref(0);
                 const countryScores = ref({ Russia: 0, Ukraine: 0 });
+                const onlineCount = ref(0);
+                const userRef = firebase.database().ref('users/' + userId);
+                const onlineRef = firebase.database().ref('online/' + userId);
+                const connectionsRef = firebase.database().ref('.info/connected');
 
-                // Инициализация базы данных
+                // Инициализация данных
                 onMounted(() => {
+                    // Загрузка общих счетов
                     firebase.database().ref('countryScores').on('value', (snapshot) => {
-                        const data = snapshot.val();
-                        if (!data) {
-                            // Создаём структуру при первом запуске
-                            firebase.database().ref('countryScores').set({
-                                Russia: 0,
-                                Ukraine: 0
-                            });
-                        } else {
-                            countryScores.value = data;
-                        }
-                        console.log("Текущие scores:", data || { Russia: 0, Ukraine: 0 });
+                        const data = snapshot.val() || { Russia: 0, Ukraine: 0 };
+                        countryScores.value = data;
                     });
+
+                    // Загрузка персональных кликов
+                    userRef.on('value', (snapshot) => {
+                        const data = snapshot.val();
+                        if (data) {
+                            userClicks.value = data.clicks || 0;
+                            userCountry.value = data.country;
+                        }
+                    });
+
+                    // Подсчет онлайн-игроков
+                    firebase.database().ref('online').on('value', (snapshot) => {
+                        onlineCount.value = snapshot.numChildren();
+                    });
+
+                    // Отметка пользователя как онлайн
+                    connectionsRef.on('value', (snapshot) => {
+                        if (snapshot.val()) {
+                            onlineRef.set(true);
+                            onlineRef.onDisconnect().remove();
+                        }
+                    });
+                });
+
+                // Очистка при размонтировании
+                onUnmounted(() => {
+                    onlineRef.remove();
                 });
 
                 // Выбор страны
                 const selectCountry = (country) => {
                     userCountry.value = country;
                     tg.expand();
+                    userRef.update({
+                        country: country,
+                        lastActive: firebase.database.ServerValue.TIMESTAMP
+                    });
                 };
 
                 // Обработка клика
@@ -86,13 +127,23 @@
                     if (!userCountry.value) return;
 
                     userClicks.value++;
+                    userRef.update({
+                        clicks: userClicks.value,
+                        lastActive: firebase.database.ServerValue.TIMESTAMP
+                    });
+
                     firebase.database().ref('countryScores/' + userCountry.value)
-                        .transaction((current) => (current || 0) + 1)
-                        .then(() => console.log("Счёт обновлён"))
-                        .catch(e => console.error("Ошибка:", e));
+                        .transaction((current) => (current || 0) + 1);
                 };
 
-                return { userCountry, userClicks, countryScores, selectCountry, addClick };
+                return {
+                    userCountry,
+                    userClicks,
+                    countryScores,
+                    onlineCount,
+                    selectCountry,
+                    addClick
+                };
             }
         }).mount('#app');
     </script>
